@@ -145,8 +145,9 @@ final class MongoProcessedSinkRecordData {
   }
 
   private MongoNamespace createNamespace() {
+    String databaseName = config.values().get("database").toString();
     if (sinkRecord.topic().equals("syain_busyo")) {
-      return new MongoNamespace("kanban.syain"); // Todo: Lấy từ config được. Tạm thời hard code
+      return new MongoNamespace(databaseName.concat(".syain"));
     }
     return tryProcess(
             () -> Optional.of(config.getNamespaceMapper().getNamespace(sinkRecord, sinkDocument)))
