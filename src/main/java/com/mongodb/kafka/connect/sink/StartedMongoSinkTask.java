@@ -112,7 +112,7 @@ final class StartedMongoSinkTask implements AutoCloseable {
         Timer processingTime = Timer.start();
         List<List<MongoProcessedSinkRecordData>> batches =
             MongoSinkRecordProcessor.orderedGroupByTopicAndNamespace(
-                records, sinkConfig, errorReporter);
+                records, sinkConfig, errorReporter, mongoClient);
         statistics.getProcessingPhases().sample(processingTime.getElapsedTime().toMillis());
         for (List<MongoProcessedSinkRecordData> batch : batches) {
           bulkWriteBatch(batch);
