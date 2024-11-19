@@ -52,7 +52,7 @@ final class MongoProcessedSinkRecordData {
     this.sinkRecord = sinkRecord;
     this.config = sinkConfig.getMongoSinkTopicConfig(sinkRecord.topic());
     this.isSkipSync = isSkip();
-    if (this.isSkipSync == true) {
+    if (this.isSkipSync) {
       this.namespace = null;
       this.writeModel = null;
       this.sinkDocument = null;
