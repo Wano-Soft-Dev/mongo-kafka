@@ -104,6 +104,29 @@ final class MongoProcessedSinkRecordData {
     return false;
   }
 
+  private MongoNamespace createNamespace() {
+    String databaseName = config.values().get("database").toString();
+    switch (sinkRecord.topic()) {
+      case "syain_busyo":
+        return new MongoNamespace(databaseName.concat(".syain"));
+      case "sagyo_wokmodel":
+      case "sagyobunrui_sagyo":
+        return new MongoNamespace(databaseName.concat(".sagyo"));
+      case "class_tree":
+        return new MongoNamespace(databaseName.concat(".class"));
+      case "classgroup_rel":
+        return new MongoNamespace(databaseName.concat(".class_group"));
+      case "tenpogroup_rel":
+      case "tenpogroup_class_rel":
+        return new MongoNamespace(databaseName.concat(".tenpo_group"));
+      default:
+        return tryProcess(
+            () ->
+                Optional.of(config.getNamespaceMapper().getNamespace(sinkRecord, sinkDocument)))
+            .orElse(null);
+    }
+  }
+
   private SinkDocument combineObject() {
     switch (sinkRecord.topic()) {
       case "syain_busyo":
@@ -116,9 +139,68 @@ final class MongoProcessedSinkRecordData {
         return getSinkRecordClassTree();
       case "classgroup_rel":
         return getSinkRecordClassgroupRel();
+      case "tenpogroup_rel":
+        return getSinkRecordTenpogroupRel();
+      case "tenpogroup_class_rel":
+        return getSinkRecordtenpogroupClassRel();
       default:
         return SINK_CONVERTER.convert(sinkRecord);
     }
+  }
+
+  private SinkDocument getSinkRecordtenpogroupClassRel() {
+    Map<String, Object> valueMap = (HashMap<String, Object>) sinkRecord.value();
+
+    BsonDocument keyDoc = new BsonDocument();
+    keyDoc.append("id", new BsonString(valueMap.get("target_tenpogroup_id").toString()));
+
+    BsonDocument bodyDoc = new BsonDocument();
+
+    BsonDocument tenporoup_class_rel =
+        SINK_CONVERTER.convert(sinkRecord).getValueDoc().orElse(null);
+    bodyDoc.append(
+        "tenporoup_class_rel.".concat(valueMap.getOrDefault("_id", "").toString()),
+        tenporoup_class_rel);
+
+    bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("target_tenpogroup_id").toString()));
+    //    bodyDoc.append(
+    //        "update_user", new BsonString(valueMap.getOrDefault("update_user", "").toString()));
+    bodyDoc.append(
+        "update_date", new BsonDateTime((Long) (valueMap.getOrDefault("update_date", 0))));
+
+    return new SinkDocument(keyDoc, bodyDoc);
+  }
+
+  private SinkDocument getSinkRecordTenpogroupRel() {
+    Map<String, Object> valueMap = (HashMap<String, Object>) sinkRecord.value();
+
+    if ((Long) valueMap.getOrDefault("depth", "") != 1) {
+      return null;
+    }
+
+    BsonDocument keyDoc = new BsonDocument();
+    keyDoc.append("id", new BsonString(valueMap.get("higher").toString()));
+
+    BsonDocument bodyDoc = new BsonDocument();
+
+    BsonDocument lower_tenpo_groups = new BsonDocument();
+
+    lower_tenpo_groups.append("_id", new BsonString(valueMap.getOrDefault("_id", "").toString()));
+    lower_tenpo_groups.append(
+        "tenpo_group_id", new BsonString(valueMap.getOrDefault("lower", "").toString()));
+    lower_tenpo_groups.append(
+        "deleted", new BsonString(valueMap.getOrDefault("deleted", "").toString()));
+    bodyDoc.append(
+        "lower_tenpo_groups.".concat(valueMap.getOrDefault("_id", "").toString()),
+        lower_tenpo_groups);
+
+    bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("higher").toString()));
+    //    bodyDoc.append(
+    //        "update_user", new BsonString(valueMap.getOrDefault("update_user", "").toString()));
+    bodyDoc.append(
+        "update_date", new BsonDateTime((Long) (valueMap.getOrDefault("update_date", 0))));
+
+    return new SinkDocument(keyDoc, bodyDoc);
   }
 
   private SinkDocument getSinkRecordClassgroupRel() {
@@ -133,15 +215,16 @@ final class MongoProcessedSinkRecordData {
 
     BsonDocument bodyDoc = new BsonDocument();
 
-    BsonDocument lower_classes = new BsonDocument();
+    BsonDocument lower_classgroups = new BsonDocument();
 
-    lower_classes.append("_id", new BsonString(valueMap.getOrDefault("_id", "").toString()));
-    lower_classes.append(
+    lower_classgroups.append("_id", new BsonString(valueMap.getOrDefault("_id", "").toString()));
+    lower_classgroups.append(
         "class_group_id", new BsonString(valueMap.getOrDefault("lower", "").toString()));
-    lower_classes.append(
+    lower_classgroups.append(
         "deleted", new BsonString(valueMap.getOrDefault("deleted", "").toString()));
     bodyDoc.append(
-        "lower_classgroups.".concat(valueMap.getOrDefault("_id", "").toString()), lower_classes);
+        "lower_classgroups.".concat(valueMap.getOrDefault("_id", "").toString()),
+        lower_classgroups);
 
     bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("higher").toString()));
     //    bodyDoc.append(
@@ -260,26 +343,6 @@ final class MongoProcessedSinkRecordData {
         "update_date", new BsonDateTime((Long) (valueMap.getOrDefault("update_date", 0))));
 
     return new SinkDocument(keyDoc, bodyDoc);
-  }
-
-  private MongoNamespace createNamespace() {
-    String databaseName = config.values().get("database").toString();
-    switch (sinkRecord.topic()) {
-      case "syain_busyo":
-        return new MongoNamespace(databaseName.concat(".syain"));
-      case "sagyo_wokmodel":
-      case "sagyobunrui_sagyo":
-        return new MongoNamespace(databaseName.concat(".sagyo"));
-      case "class_tree":
-        return new MongoNamespace(databaseName.concat(".class"));
-      case "classgroup_rel":
-        return new MongoNamespace(databaseName.concat(".class_group"));
-      default:
-        return tryProcess(
-            () ->
-                Optional.of(config.getNamespaceMapper().getNamespace(sinkRecord, sinkDocument)))
-            .orElse(null);
-    }
   }
 
   private WriteModel<BsonDocument> createWriteModel() {
