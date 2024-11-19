@@ -114,9 +114,42 @@ final class MongoProcessedSinkRecordData {
         return getSinkRecordSagyobunruiM();
       case "class_tree":
         return getSinkRecordClassTree();
+      case "classgroup_rel":
+        return getSinkRecordClassgroupRel();
       default:
         return SINK_CONVERTER.convert(sinkRecord);
     }
+  }
+
+  private SinkDocument getSinkRecordClassgroupRel() {
+    Map<String, Object> valueMap = (HashMap<String, Object>) sinkRecord.value();
+
+    if ((Long) valueMap.getOrDefault("depth", "") != 1) {
+      return null;
+    }
+
+    BsonDocument keyDoc = new BsonDocument();
+    keyDoc.append("id", new BsonString(valueMap.get("higher").toString()));
+
+    BsonDocument bodyDoc = new BsonDocument();
+
+    BsonDocument lower_classes = new BsonDocument();
+
+    lower_classes.append("_id", new BsonString(valueMap.getOrDefault("_id", "").toString()));
+    lower_classes.append(
+        "class_group_id", new BsonString(valueMap.getOrDefault("lower", "").toString()));
+    lower_classes.append(
+        "deleted", new BsonString(valueMap.getOrDefault("deleted", "").toString()));
+    bodyDoc.append(
+        "lower_classgroups.".concat(valueMap.getOrDefault("_id", "").toString()), lower_classes);
+
+    bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("higher").toString()));
+    //    bodyDoc.append(
+    //        "update_user", new BsonString(valueMap.getOrDefault("update_user", "").toString()));
+    bodyDoc.append(
+        "update_date", new BsonDateTime((Long) (valueMap.getOrDefault("update_date", 0))));
+
+    return new SinkDocument(keyDoc, bodyDoc);
   }
 
   private SinkDocument getSinkRecordClassTree() {
@@ -239,6 +272,8 @@ final class MongoProcessedSinkRecordData {
         return new MongoNamespace(databaseName.concat(".sagyo"));
       case "class_tree":
         return new MongoNamespace(databaseName.concat(".class"));
+      case "classgroup_rel":
+        return new MongoNamespace(databaseName.concat(".class_group"));
       default:
         return tryProcess(
             () ->
