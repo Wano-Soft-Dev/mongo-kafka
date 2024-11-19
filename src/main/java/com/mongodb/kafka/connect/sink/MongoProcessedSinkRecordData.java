@@ -16,25 +16,25 @@
 
 package com.mongodb.kafka.connect.sink;
 
-import static com.mongodb.kafka.connect.sink.MongoSinkTopicConfig.ID_FIELD;
+import com.mongodb.MongoNamespace;
+import com.mongodb.client.model.WriteModel;
+import com.mongodb.kafka.connect.sink.converter.SinkConverter;
+import com.mongodb.kafka.connect.sink.converter.SinkDocument;
+import com.mongodb.kafka.connect.sink.writemodel.strategy.WriteModelStrategyHelper;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.bson.BsonBoolean;
+import org.bson.BsonDateTime;
+import org.bson.BsonDocument;
+import org.bson.BsonString;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import org.apache.kafka.connect.sink.SinkRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.bson.*;
-
-import com.mongodb.MongoNamespace;
-import com.mongodb.client.model.WriteModel;
-
-import com.mongodb.kafka.connect.sink.converter.SinkConverter;
-import com.mongodb.kafka.connect.sink.converter.SinkDocument;
-import com.mongodb.kafka.connect.sink.writemodel.strategy.WriteModelStrategyHelper;
+import static com.mongodb.kafka.connect.sink.MongoSinkTopicConfig.ID_FIELD;
 
 final class MongoProcessedSinkRecordData {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoProcessedSinkRecordData.class);
@@ -94,64 +94,118 @@ final class MongoProcessedSinkRecordData {
     Object value = this.sinkRecord.value();
     if (value instanceof HashMap) {
       Map<String, Object> valueMap = (HashMap<String, Object>) value;
-      if ("mongodb".equals(valueMap.getOrDefault("_sync_actor", null))) {
-        return true;
-      }
+      return "mongodb".equals(valueMap.getOrDefault("_sync_actor", null));
     }
     return false;
   }
 
   private SinkDocument combineObject() {
-    if (sinkRecord.topic().equals("syain_busyo")) {
-      Map<String, Object> valueMap = (HashMap<String, Object>) sinkRecord.value();
-
-      BsonDocument keyDoc = new BsonDocument();
-      keyDoc.append("id", new BsonString(valueMap.get("syain_id").toString()));
-
-      BsonDocument bodyDoc = new BsonDocument();
-      BsonDocument syainBusyo = new BsonDocument();
-
-      syainBusyo.append("_id", new BsonString(valueMap.getOrDefault("_id", "").toString()));
-      syainBusyo.append(
-          "class_id", new BsonString(valueMap.getOrDefault("class_id", "").toString()));
-      syainBusyo.append(
-          "syusyozoku_flag",
-          new BsonBoolean(
-              Boolean.parseBoolean(valueMap.getOrDefault("syusyozoku_flag", false).toString())));
-      syainBusyo.append(
-          "create_user", new BsonString(valueMap.getOrDefault("create_user", "").toString()));
-      syainBusyo.append(
-          "create_date", new BsonDateTime((Long) (valueMap.getOrDefault("create_date", 0))));
-      syainBusyo.append(
-          "update_user", new BsonString(valueMap.getOrDefault("update_user", "").toString()));
-      syainBusyo.append(
-          "update_date", new BsonDateTime((Long) (valueMap.getOrDefault("update_date", 0))));
-
-      // Todo: Tìm kiếm và xoá các syain_busyo ở document syain khác nếu thay đổi syain_id (cái này
-      // ưu
-      // tiên sau, vì nghiệp vụ chưa xảy ra)
-      bodyDoc.append(
-          "syain_busyos.".concat(valueMap.getOrDefault("_id", "").toString()), syainBusyo);
-      bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("syain_id").toString()));
-      bodyDoc.append(
-          "update_user", new BsonString(valueMap.getOrDefault("update_user", "").toString()));
-      bodyDoc.append(
-          "update_date", new BsonDateTime((Long) (valueMap.getOrDefault("update_date", 0))));
-
-      return new SinkDocument(keyDoc, bodyDoc);
+    switch (sinkRecord.topic()) {
+      case "syain_busyo":
+        return getSinkRecordSyainBusyo();
+      case "sagyo_wokmodel":
+        return getSinkRecordSagyoWokmodel();
+      case "sagyobunrui_sagyo":
+        return getSinkRecordSagyobunruiM();
+      default:
+        return SINK_CONVERTER.convert(sinkRecord);
     }
+  }
 
-    return SINK_CONVERTER.convert(sinkRecord);
+  private SinkDocument getSinkRecordSagyobunruiM() {
+    Map<String, Object> valueMap = (HashMap<String, Object>) sinkRecord.value();
+
+    BsonDocument keyDoc = new BsonDocument();
+    keyDoc.append("id", new BsonString(valueMap.get("sagyo_id").toString()));
+
+    BsonDocument bodyDoc = new BsonDocument();
+
+    BsonDocument sagyobunrui_m = new BsonDocument();
+
+    sagyobunrui_m.append(
+        "_id", new BsonString(valueMap.getOrDefault("sagyobunrui_m_id", "").toString()));
+    bodyDoc.append("sagyobunrui_m", sagyobunrui_m);
+
+    bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("sagyo_id").toString()));
+//    bodyDoc.append(
+//        "update_user", new BsonString(valueMap.getOrDefault("update_user", "").toString()));
+//    bodyDoc.append(
+//        "update_date", new BsonDateTime((Long) (valueMap.getOrDefault("update_date", 0))));
+
+    return new SinkDocument(keyDoc, bodyDoc);
+  }
+
+  private SinkDocument getSinkRecordSagyoWokmodel() {
+    Map<String, Object> valueMap = (HashMap<String, Object>) sinkRecord.value();
+
+    BsonDocument keyDoc = new BsonDocument();
+    keyDoc.append("id", new BsonString(valueMap.get("sagyo_id").toString()));
+
+    BsonDocument bodyDoc = new BsonDocument();
+
+    BsonDocument sagyo_wokmodel = SINK_CONVERTER.convert(sinkRecord).getValueDoc().orElse(null);
+    bodyDoc.append("sagyo_wokmodel", sagyo_wokmodel);
+
+    bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("sagyo_id").toString()));
+    bodyDoc.append(
+        "update_user", new BsonString(valueMap.getOrDefault("update_user", "").toString()));
+    bodyDoc.append(
+        "update_date", new BsonDateTime((Long) (valueMap.getOrDefault("update_date", 0))));
+
+    return new SinkDocument(keyDoc, bodyDoc);
+  }
+
+  private SinkDocument getSinkRecordSyainBusyo() {
+    Map<String, Object> valueMap = (HashMap<String, Object>) sinkRecord.value();
+
+    BsonDocument keyDoc = new BsonDocument();
+    keyDoc.append("id", new BsonString(valueMap.get("syain_id").toString()));
+
+    BsonDocument bodyDoc = new BsonDocument();
+    BsonDocument syainBusyo = new BsonDocument();
+
+    syainBusyo.append("_id", new BsonString(valueMap.getOrDefault("_id", "").toString()));
+    syainBusyo.append("class_id", new BsonString(valueMap.getOrDefault("class_id", "").toString()));
+    syainBusyo.append(
+        "syusyozoku_flag",
+        new BsonBoolean(
+            Boolean.parseBoolean(valueMap.getOrDefault("syusyozoku_flag", false).toString())));
+    syainBusyo.append(
+        "create_user", new BsonString(valueMap.getOrDefault("create_user", "").toString()));
+    syainBusyo.append(
+        "create_date", new BsonDateTime((Long) (valueMap.getOrDefault("create_date", 0))));
+    syainBusyo.append(
+        "update_user", new BsonString(valueMap.getOrDefault("update_user", "").toString()));
+    syainBusyo.append(
+        "update_date", new BsonDateTime((Long) (valueMap.getOrDefault("update_date", 0))));
+
+    // Todo: Tìm kiếm và xoá các syain_busyo ở document syain khác nếu thay đổi syain_id (cái này
+    // ưu
+    // tiên sau, vì nghiệp vụ chưa xảy ra)
+    bodyDoc.append("syain_busyos.".concat(valueMap.getOrDefault("_id", "").toString()), syainBusyo);
+    bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("syain_id").toString()));
+    bodyDoc.append(
+        "update_user", new BsonString(valueMap.getOrDefault("update_user", "").toString()));
+    bodyDoc.append(
+        "update_date", new BsonDateTime((Long) (valueMap.getOrDefault("update_date", 0))));
+
+    return new SinkDocument(keyDoc, bodyDoc);
   }
 
   private MongoNamespace createNamespace() {
     String databaseName = config.values().get("database").toString();
-    if (sinkRecord.topic().equals("syain_busyo")) {
-      return new MongoNamespace(databaseName.concat(".syain"));
+    switch (sinkRecord.topic()) {
+      case "syain_busyo":
+        return new MongoNamespace(databaseName.concat(".syain"));
+      case "sagyo_wokmodel":
+      case "sagyobunrui_sagyo":
+        return new MongoNamespace(databaseName.concat(".sagyo"));
+      default:
+        return tryProcess(
+            () ->
+                Optional.of(config.getNamespaceMapper().getNamespace(sinkRecord, sinkDocument)))
+            .orElse(null);
     }
-    return tryProcess(
-            () -> Optional.of(config.getNamespaceMapper().getNamespace(sinkRecord, sinkDocument)))
-        .orElse(null);
   }
 
   private WriteModel<BsonDocument> createWriteModel() {
