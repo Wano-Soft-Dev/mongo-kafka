@@ -94,7 +94,7 @@ final class MongoProcessedSinkRecordData {
     Object value = this.sinkRecord.value();
     if (value instanceof HashMap) {
       Map<String, Object> valueMap = (HashMap<String, Object>) value;
-      if ("mongodb".equals(valueMap.getOrDefault("sync_actor", null))) {
+      if ("mongodb".equals(valueMap.getOrDefault("_sync_actor", null))) {
         return true;
       }
     }
