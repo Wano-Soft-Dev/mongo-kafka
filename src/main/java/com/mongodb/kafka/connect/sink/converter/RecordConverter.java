@@ -25,4 +25,8 @@ import org.bson.BsonDocument;
 public interface RecordConverter {
 
   BsonDocument convert(Schema schema, Object value);
+
+  default BsonDocument customConvert(Schema schema, Object value, String namespace) {
+    return convert(schema, value);
+  }
 }

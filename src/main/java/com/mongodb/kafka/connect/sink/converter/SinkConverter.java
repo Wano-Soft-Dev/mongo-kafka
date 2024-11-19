@@ -57,7 +57,7 @@ public class SinkConverter {
               record,
               Type.VALUE,
               (Schema schema, Object data) ->
-                  getRecordConverter(schema, data).convert(schema, data));
+                  getRecordConverter(schema, data).customConvert(schema, data, record.topic()));
     }
 
     return new SinkDocument(keyDoc, valueDoc);
