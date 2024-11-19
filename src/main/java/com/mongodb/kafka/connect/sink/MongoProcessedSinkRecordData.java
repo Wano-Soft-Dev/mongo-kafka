@@ -58,8 +58,13 @@ final class MongoProcessedSinkRecordData {
       this.sinkDocument = null;
     } else {
       this.sinkDocument = combineObject();
-      this.namespace = createNamespace();
-      this.writeModel = createWriteModel();
+      if (this.sinkDocument == null) {
+        this.namespace = null;
+        this.writeModel = null;
+      } else {
+        this.namespace = createNamespace();
+        this.writeModel = createWriteModel();
+      }
     }
   }
 
@@ -107,9 +112,41 @@ final class MongoProcessedSinkRecordData {
         return getSinkRecordSagyoWokmodel();
       case "sagyobunrui_sagyo":
         return getSinkRecordSagyobunruiM();
+      case "class_tree":
+        return getSinkRecordClassTree();
       default:
         return SINK_CONVERTER.convert(sinkRecord);
     }
+  }
+
+  private SinkDocument getSinkRecordClassTree() {
+    Map<String, Object> valueMap = (HashMap<String, Object>) sinkRecord.value();
+
+    if ((Long) valueMap.getOrDefault("depth", "") != 1) {
+      return null;
+    }
+
+    BsonDocument keyDoc = new BsonDocument();
+    keyDoc.append("id", new BsonString(valueMap.get("higher").toString()));
+
+    BsonDocument bodyDoc = new BsonDocument();
+
+    BsonDocument lower_classes = new BsonDocument();
+
+    lower_classes.append("_id", new BsonString(valueMap.getOrDefault("_id", "").toString()));
+    lower_classes.append("class_id", new BsonString(valueMap.getOrDefault("lower", "").toString()));
+    lower_classes.append(
+        "deleted", new BsonString(valueMap.getOrDefault("deleted", "").toString()));
+    bodyDoc.append(
+        "lower_classes.".concat(valueMap.getOrDefault("_id", "").toString()), lower_classes);
+
+    bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("higher").toString()));
+    //    bodyDoc.append(
+    //        "update_user", new BsonString(valueMap.getOrDefault("update_user", "").toString()));
+    bodyDoc.append(
+        "update_date", new BsonDateTime((Long) (valueMap.getOrDefault("update_date", 0))));
+
+    return new SinkDocument(keyDoc, bodyDoc);
   }
 
   private SinkDocument getSinkRecordSagyobunruiM() {
@@ -127,10 +164,10 @@ final class MongoProcessedSinkRecordData {
     bodyDoc.append("sagyobunrui_m", sagyobunrui_m);
 
     bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("sagyo_id").toString()));
-//    bodyDoc.append(
-//        "update_user", new BsonString(valueMap.getOrDefault("update_user", "").toString()));
-//    bodyDoc.append(
-//        "update_date", new BsonDateTime((Long) (valueMap.getOrDefault("update_date", 0))));
+    //    bodyDoc.append(
+    //        "update_user", new BsonString(valueMap.getOrDefault("update_user", "").toString()));
+    //    bodyDoc.append(
+    //        "update_date", new BsonDateTime((Long) (valueMap.getOrDefault("update_date", 0))));
 
     return new SinkDocument(keyDoc, bodyDoc);
   }
@@ -200,6 +237,8 @@ final class MongoProcessedSinkRecordData {
       case "sagyo_wokmodel":
       case "sagyobunrui_sagyo":
         return new MongoNamespace(databaseName.concat(".sagyo"));
+      case "class_tree":
+        return new MongoNamespace(databaseName.concat(".class"));
       default:
         return tryProcess(
             () ->
