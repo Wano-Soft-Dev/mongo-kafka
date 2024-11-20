@@ -16,10 +16,7 @@
 
 package com.mongodb.kafka.connect.sink;
 
-import static com.mongodb.kafka.connect.sink.MongoSinkTopicConfig.ID_FIELD;
-import static com.mongodb.kafka.connect.sink.MongoSinkTopicConfig.SYNC_ACTOR_FIELD;
-import static com.mongodb.kafka.connect.sink.MongoSinkTopicConfig.SYNC_ACTOR_MONGODB;
-import static com.mongodb.kafka.connect.sink.MongoSinkTopicConfig.SYNC_ACTOR_POSTGRES;
+import static com.mongodb.kafka.connect.sink.MongoSinkTopicConfig.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -506,13 +503,12 @@ final class MongoProcessedSinkRecordData {
         "create_user", new BsonString(Objects.toString(valueMap.get("create_user"), "connector")));
     bodyDoc.append(
         "create_date",
-        new BsonDateTime((Long) (valueMap.getOrDefault("create_date", currentTime))));
+        (BsonValue) valueMap.getOrDefault("create_date", new BsonDateTime(currentTime)));
     bodyDoc.append(
         "update_user", new BsonString(Objects.toString(valueMap.get("update_user"), "connector")));
     bodyDoc.append(
         "update_date",
-        new BsonDateTime((Long) (valueMap.getOrDefault("update_date", currentTime))));
-
+        (BsonValue) valueMap.getOrDefault("update_date", new BsonDateTime(currentTime)));
     return new SinkDocument(keyDoc, bodyDoc);
   }
 

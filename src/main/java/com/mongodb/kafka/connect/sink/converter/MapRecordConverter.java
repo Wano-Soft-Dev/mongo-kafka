@@ -18,11 +18,13 @@
 
 package com.mongodb.kafka.connect.sink.converter;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.DataException;
 
+import org.bson.BsonDateTime;
 import org.bson.BsonDocument;
 import org.bson.Document;
 
@@ -48,18 +50,90 @@ class MapRecordConverter implements RecordConverter {
       throw new DataException("Value was null for JSON conversion");
     }
     Map<String, Object> map = (Map<String, Object>) value;
-    setValueDate(map, namespace);
-    setDefaultValueDate(map);
+    setDateTimeToBsonDateTime(map, namespace);
+    setDateToBsonDateTime(map, namespace);
+    setDateToStringDate(map, namespace);
+    setDefaultValueBsonDateTime(map);
 
     return new Document(map)
         .toBsonDocument(Document.class, MongoClientSettings.getDefaultCodecRegistry());
   }
 
+  /** Chuyển đổi từ định dạng DateTime (kafka: long: 1730710177547) => BsonDateTime */
   @SuppressWarnings("unchecked")
-  private void setValueDate(Map<String, Object> namespace, final String tableName) {
+  private void setDateTimeToBsonDateTime(Map<String, Object> namespace, final String tableName) {
     // Tìm thông tin bảng trong danh sách tables
     Map<String, Object> tableInfo =
-        TABLE_PATTERN.stream()
+        FIELD_DATE_TIME_TO_BSON_DATETIME.stream()
+            .filter(table -> table.get("table").equals(tableName))
+            .findFirst()
+            .orElse(null);
+
+    if (tableInfo == null) {
+      System.out.println("No matching table found for table name: " + tableName);
+      return; // Không có bảng phù hợp, thoát sớm
+    }
+
+    // Lấy danh sách các trường cần chuyển đổi
+    Set<String> fieldsToConvert = new HashSet<>((List<String>) tableInfo.get("field"));
+
+    // Duyệt qua các key-value trong namespace và chuyển đổi
+    for (Map.Entry<String, Object> entry : namespace.entrySet()) {
+      String key = entry.getKey();
+      Object value = entry.getValue();
+
+      // Kiểm tra nếu key thuộc danh sách cần chuyển đổi và value là số
+      if (fieldsToConvert.contains(key) && value instanceof Number) {
+        long valueAsLong = ((Number) value).longValue();
+
+        BsonDateTime date = new BsonDateTime(valueAsLong);
+        namespace.put(key, date); // Cập nhật giá trị trong namespace
+      }
+    }
+  }
+
+  /** Chuyển đổi từ định dạng Date (kafka: integer: 19817) => BsonDateTime */
+  @SuppressWarnings("unchecked")
+  private void setDateToBsonDateTime(Map<String, Object> namespace, final String tableName) {
+    // Tìm thông tin bảng trong danh sách tables
+    Map<String, Object> tableInfo =
+        FIELD_DATE_TO_BSON_DATETIME.stream()
+            .filter(table -> table.get("table").equals(tableName))
+            .findFirst()
+            .orElse(null);
+
+    if (tableInfo == null) {
+      System.out.println("No matching table found for table name: " + tableName);
+      return; // Không có bảng phù hợp, thoát sớm
+    }
+
+    // Lấy danh sách các trường cần chuyển đổi
+    Set<String> fieldsToConvert = new HashSet<>((List<String>) tableInfo.get("field"));
+
+    // Duyệt qua các key-value trong namespace và chuyển đổi
+    for (Map.Entry<String, Object> entry : namespace.entrySet()) {
+      String key = entry.getKey();
+      Object value = entry.getValue();
+
+      // Kiểm tra nếu key thuộc danh sách cần chuyển đổi và value là số
+      if (fieldsToConvert.contains(key) && value instanceof Number) {
+        long valueAsLong = ((Number) value).longValue();
+
+        // Giả sử giá trị này là số ngày kể từ ngày 1970-01-01
+        long newDate =
+            24 * 60 * 60 * 1000L * valueAsLong; // Số mili giây trong một ngày * giá trị ngày
+        BsonDateTime date = new BsonDateTime(newDate);
+        namespace.put(key, date); // Cập nhật giá trị trong namespace
+      }
+    }
+  }
+
+  /** Chuyển đổi từ định dạng Date (kafka: integer: 19817) => StringDate: "2024-11-12T00:00:00Z" */
+  @SuppressWarnings("unchecked")
+  private void setDateToStringDate(Map<String, Object> namespace, final String tableName) {
+    // Tìm thông tin bảng trong danh sách tables
+    Map<String, Object> tableInfo =
+        FIELD_DATE_TO_STRING_DATE.stream()
             .filter(table -> table.get("table").equals(tableName))
             .findFirst()
             .orElse(null);
@@ -85,16 +159,18 @@ class MapRecordConverter implements RecordConverter {
         long newDate =
             24 * 60 * 60 * 1000L * valueAsLong; // Số mili giây trong một ngày * giá trị ngày
         Date date = new Date(newDate);
-        namespace.put(key, date); // Cập nhật giá trị trong namespace
+        String formattedDate = ISO_FORMAT.format(date);
+
+        namespace.put(key, formattedDate); // Cập nhật giá trị trong namespace
       }
     }
   }
 
-  private void setDefaultValueDate(Map<String, Object> map) {
+  private void setDefaultValueBsonDateTime(Map<String, Object> map) {
     map.forEach(
         (key, value) -> {
           if (DATE_KEYS.contains(key) && value instanceof Number) {
-            map.put(key, new Date(((Number) value).longValue()));
+            map.put(key, new BsonDateTime(((Number) value).longValue()));
           }
         });
   }
@@ -106,16 +182,20 @@ class MapRecordConverter implements RecordConverter {
     return tableMap;
   }
 
+  private static final SimpleDateFormat ISO_FORMAT =
+      new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+
   private static final Set<String> DATE_KEYS =
       new HashSet<>(Arrays.asList("create_date", "update_date", "yukokikan_from", "yukokikan_to"));
 
-  private static final List<Map<String, Object>> TABLE_PATTERN =
+  /** Chuyển đổi từ định dạng DateTime (kafka: long: 1730710177547) => BsonDateTime */
+  private static final List<Map<String, Object>> FIELD_DATE_TIME_TO_BSON_DATETIME =
       Arrays.asList(
           createTableMap("seihin_recept_genpon", "tekiyou_kikan_from", "tekiyou_kikan_to"),
           createTableMap("husokuninji_send_genpon", "hiduke"),
           createTableMap("tenpo_seizo_jikantai_recept_genpon", "seizou_bi"),
           createTableMap("syain", "nyusya_date", "taisya_date", "ido_date"),
-          createTableMap("demands", "hiduke", "hani_hiduke_from", "hani_hiduke_to"),
+          //          createTableMap("demands", "hiduke", "hani_hiduke_from", "hani_hiduke_to"),
           createTableMap("task", "hiduke"),
           createTableMap("yosanninji_recept_genpon", "yosan_taisyo_day"),
           createTableMap("kykammokuhyo", "hiduke"),
@@ -149,4 +229,16 @@ class MapRecordConverter implements RecordConverter {
               "yobi_bi_6",
               "hasshin_nichiji",
               "koushin_nichiji"));
+
+  /** Chuyển đổi từ định dạng Date (kafka: integer: 19817) => BsonDateTime */
+  private static final List<Map<String, Object>> FIELD_DATE_TO_BSON_DATETIME =
+      Arrays.asList(
+          createTableMap("table_name_1", "field_1", "field_2"),
+          createTableMap("demands", "hani_hiduke_from", "hani_hiduke_to"));
+
+  /** Chuyển đổi từ định dạng Date (kafka: integer: 19817) => StringDate: "2024-11-12T00:00:00Z" */
+  private static final List<Map<String, Object>> FIELD_DATE_TO_STRING_DATE =
+      Arrays.asList(
+          createTableMap("table_name_3", "field_1", "field_2"),
+          createTableMap("demands", "hiduke"));
 }
