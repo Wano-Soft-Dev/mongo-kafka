@@ -189,31 +189,14 @@ class MapRecordConverter implements RecordConverter {
       new HashSet<>(Arrays.asList("create_date", "update_date", "yukokikan_from", "yukokikan_to"));
 
   /** Chuyển đổi từ định dạng DateTime (kafka: long: 1730710177547) => BsonDateTime */
-  private static final List<Map<String, Object>> FIELD_DATE_TIME_TO_BSON_DATETIME =
+  private static final List<Map<String, Object>> FIELD_DATE_TIME_TO_BSON_DATETIME = Arrays.asList();
+
+  /** Chuyển đổi từ định dạng Date (kafka: integer: 19817) => BsonDateTime */
+  private static final List<Map<String, Object>> FIELD_DATE_TO_BSON_DATETIME =
       Arrays.asList(
-          createTableMap("seihin_recept_genpon", "tekiyou_kikan_from", "tekiyou_kikan_to"),
-          createTableMap("husokuninji_send_genpon", "hiduke"),
-          createTableMap("tenpo_seizo_jikantai_recept_genpon", "seizou_bi"),
           createTableMap("syain", "nyusya_date", "taisya_date", "ido_date"),
-          //          createTableMap("demands", "hiduke", "hani_hiduke_from", "hani_hiduke_to"),
+          createTableMap("demands", "hiduke", "hani_hiduke_from", "hani_hiduke_to"),
           createTableMap("task", "hiduke"),
-          createTableMap("yosanninji_recept_genpon", "yosan_taisyo_day"),
-          createTableMap("kykammokuhyo", "hiduke"),
-          createTableMap(
-              "bmail_recept_genpon",
-              "jissi_syu_from",
-              "jissi_syu_to",
-              "koukai_kaishi_bi",
-              "jisshi_kigen",
-              "sagyou_bi",
-              "yobi_bi_1",
-              "yobi_bi_2",
-              "yobi_bi_3",
-              "yobi_bi_4",
-              "yobi_bi_5",
-              "yobi_bi_6",
-              "hasshin_nichiji",
-              "koushin_nichiji"),
           createTableMap(
               "be_bmail",
               "jissi_syu_from",
@@ -228,17 +211,10 @@ class MapRecordConverter implements RecordConverter {
               "yobi_bi_5",
               "yobi_bi_6",
               "hasshin_nichiji",
-              "koushin_nichiji"));
-
-  /** Chuyển đổi từ định dạng Date (kafka: integer: 19817) => BsonDateTime */
-  private static final List<Map<String, Object>> FIELD_DATE_TO_BSON_DATETIME =
-      Arrays.asList(
-          createTableMap("table_name_1", "field_1", "field_2"),
-          createTableMap("demands", "hani_hiduke_from", "hani_hiduke_to"));
+              "koushin_nichiji"),
+          createTableMap("kykammokuhyo", "hiduke"),
+          createTableMap("shift", "hiduke"));
 
   /** Chuyển đổi từ định dạng Date (kafka: integer: 19817) => StringDate: "2024-11-12T00:00:00Z" */
-  private static final List<Map<String, Object>> FIELD_DATE_TO_STRING_DATE =
-      Arrays.asList(
-          createTableMap("table_name_3", "field_1", "field_2"),
-          createTableMap("demands", "hiduke"));
+  private static final List<Map<String, Object>> FIELD_DATE_TO_STRING_DATE = Arrays.asList();
 }
