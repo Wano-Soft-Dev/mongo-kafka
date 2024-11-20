@@ -415,6 +415,9 @@ public class MongoSinkTopicConfig extends AbstractConfig {
       Pattern.compile("(" + CLASS_NAME + "\\.)*" + CLASS_NAME);
 
   public static final String ID_FIELD = "_id";
+  public static final String SYNC_ACTOR_FIELD = "_sync_actor";
+  public static final String SYNC_ACTOR_MONGODB = "mongodb";
+  public static final String SYNC_ACTOR_POSTGRES = "postgres";
 
   static final List<String> SYNTHETIC_CONFIGS = singletonList(TOPIC_CONFIG);
 
