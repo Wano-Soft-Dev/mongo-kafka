@@ -23,6 +23,7 @@ import static com.mongodb.kafka.connect.sink.MongoSinkTopicConfig.SYNC_ACTOR_POS
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -175,10 +176,14 @@ final class MongoProcessedSinkRecordData {
       case "workschedule":
         result = getSinkRecordWorkschedule();
         break;
+      case "demands":
+        result = getSinkRecordDemands();
+        break;
       default:
         result = SINK_CONVERTER.convert(sinkRecord);
         break;
     }
+    if (this.isSkipSync) return null;
 
     // set default _sync_actor
     BsonDocument bodyDoc = result.getValueDoc().orElse(null);
@@ -197,15 +202,13 @@ final class MongoProcessedSinkRecordData {
     BsonDocument bodyDoc = new BsonDocument();
     bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("target_tenpogroup_id").toString()));
 
-    BsonDocument tenporoupClassRel =
-        SINK_CONVERTER.convert(sinkRecord).getValueDoc().orElse(null);
+    BsonDocument tenporoupClassRel = SINK_CONVERTER.convert(sinkRecord).getValueDoc().orElse(null);
     bodyDoc.append(
         "tenporoup_class_rel.".concat(valueMap.getOrDefault("_id", "").toString()),
         tenporoupClassRel);
 
     bodyDoc.append(
-        "update_user",
-        new BsonString(valueMap.getOrDefault("update_user", "connector").toString()));
+        "update_user", new BsonString(Objects.toString(valueMap.get("update_user"), "connector")));
     bodyDoc.append(
         "update_date",
         new BsonDateTime((Long) (valueMap.getOrDefault("update_date", currentTime))));
@@ -239,8 +242,7 @@ final class MongoProcessedSinkRecordData {
         lowerTenpoGroups);
 
     bodyDoc.append(
-        "update_user",
-        new BsonString(valueMap.getOrDefault("update_user", "connector").toString()));
+        "update_user", new BsonString(Objects.toString(valueMap.get("update_user"), "connector")));
     bodyDoc.append(
         "update_date",
         new BsonDateTime((Long) (valueMap.getOrDefault("update_date", currentTime))));
@@ -271,12 +273,10 @@ final class MongoProcessedSinkRecordData {
         "deleted",
         new BsonBoolean(Boolean.parseBoolean(valueMap.getOrDefault("deleted", false).toString())));
     bodyDoc.append(
-        "lower_classgroups.".concat(valueMap.getOrDefault("_id", "").toString()),
-        lowerClassGroups);
+        "lower_classgroups.".concat(valueMap.getOrDefault("_id", "").toString()), lowerClassGroups);
 
     bodyDoc.append(
-        "update_user",
-        new BsonString(valueMap.getOrDefault("update_user", "connector").toString()));
+        "update_user", new BsonString(Objects.toString(valueMap.get("update_user"), "connector")));
     bodyDoc.append(
         "update_date",
         new BsonDateTime((Long) (valueMap.getOrDefault("update_date", currentTime))));
@@ -309,8 +309,7 @@ final class MongoProcessedSinkRecordData {
         "lower_classes.".concat(valueMap.getOrDefault("_id", "").toString()), lowerClasses);
 
     bodyDoc.append(
-        "update_user",
-        new BsonString(valueMap.getOrDefault("update_user", "connector").toString()));
+        "update_user", new BsonString(Objects.toString(valueMap.get("update_user"), "connector")));
     bodyDoc.append(
         "update_date",
         new BsonDateTime((Long) (valueMap.getOrDefault("update_date", currentTime))));
@@ -334,8 +333,7 @@ final class MongoProcessedSinkRecordData {
     bodyDoc.append("sagyobunrui_m", sagyobunruiM);
 
     bodyDoc.append(
-        "update_user",
-        new BsonString(valueMap.getOrDefault("update_user", "connector").toString()));
+        "update_user", new BsonString(Objects.toString(valueMap.get("update_user"), "connector")));
     bodyDoc.append(
         "update_date",
         new BsonDateTime((Long) (valueMap.getOrDefault("update_date", currentTime))));
@@ -356,8 +354,7 @@ final class MongoProcessedSinkRecordData {
     bodyDoc.append("sagyo_wokmodel", sagyoWokmodel);
 
     bodyDoc.append(
-        "update_user",
-        new BsonString(valueMap.getOrDefault("update_user", "connector").toString()));
+        "update_user", new BsonString(Objects.toString(valueMap.get("update_user"), "connector")));
     bodyDoc.append(
         "update_date",
         new BsonDateTime((Long) (valueMap.getOrDefault("update_date", currentTime))));
@@ -383,14 +380,12 @@ final class MongoProcessedSinkRecordData {
         new BsonBoolean(
             Boolean.parseBoolean(valueMap.getOrDefault("syusyozoku_flag", false).toString())));
     syainBusyo.append(
-        "create_user",
-        new BsonString(valueMap.getOrDefault("create_user", "connector").toString()));
+        "create_user", new BsonString(Objects.toString(valueMap.get("create_user"), "connector")));
     syainBusyo.append(
         "create_date",
         new BsonDateTime((Long) (valueMap.getOrDefault("create_date", currentTime))));
     syainBusyo.append(
-        "update_user",
-        new BsonString(valueMap.getOrDefault("update_user", "connector").toString()));
+        "update_user", new BsonString(Objects.toString(valueMap.get("update_user"), "connector")));
     syainBusyo.append(
         "update_date",
         new BsonDateTime((Long) (valueMap.getOrDefault("update_date", currentTime))));
@@ -399,8 +394,7 @@ final class MongoProcessedSinkRecordData {
     // ưu tiên sau, vì nghiệp vụ chưa xảy ra)
     bodyDoc.append("syain_busyos.".concat(valueMap.getOrDefault("_id", "").toString()), syainBusyo);
     bodyDoc.append(
-        "update_user",
-        new BsonString(valueMap.getOrDefault("update_user", "connector").toString()));
+        "update_user", new BsonString(Objects.toString(valueMap.get("update_user"), "connector")));
     bodyDoc.append(
         "update_date",
         new BsonDateTime((Long) (valueMap.getOrDefault("update_date", currentTime))));
@@ -435,18 +429,27 @@ final class MongoProcessedSinkRecordData {
     bodyDoc.append(ID_FIELD, new BsonString(shiftDocument.get("_id").toString()));
 
     BsonDocument taskDoc = SINK_CONVERTER.convert(sinkRecord).getValueDoc().orElse(null);
+    taskDoc.append(
+        "create_user", new BsonString(Objects.toString(taskData.get("create_user"), "connector")));
+    taskDoc.append(
+        "create_date",
+        new BsonDateTime((Long) (taskData.getOrDefault("create_date", currentTime))));
+    taskDoc.append(
+        "update_user", new BsonString(Objects.toString(taskData.get("update_user"), "connector")));
+    taskDoc.append(
+        "update_date",
+        new BsonDateTime((Long) (taskData.getOrDefault("update_date", currentTime))));
+
     // Todo: convert trường hiduke ra dữ liệu cho API có thể chạy được
     bodyDoc.append("tasks." + taskData.getOrDefault("task_id", "").toString(), taskDoc);
 
     bodyDoc.append(
-        "create_user",
-        new BsonString(taskData.getOrDefault("create_user", "connector").toString()));
+        "create_user", new BsonString(Objects.toString(taskData.get("create_user"), "connector")));
     bodyDoc.append(
         "create_date",
         new BsonDateTime((Long) (taskData.getOrDefault("create_date", currentTime))));
     bodyDoc.append(
-        "update_user",
-        new BsonString(taskData.getOrDefault("update_user", "connector").toString()));
+        "update_user", new BsonString(Objects.toString(taskData.get("update_user"), "connector")));
     bodyDoc.append(
         "update_date",
         new BsonDateTime((Long) (taskData.getOrDefault("update_date", currentTime))));
@@ -456,7 +459,7 @@ final class MongoProcessedSinkRecordData {
     // Todo: add task to demands.workschedules.task_id_list
   }
 
-  private SinkDocument getSinkRecordWorkschedule(){
+  private SinkDocument getSinkRecordWorkschedule() {
     Map<String, Object> valueMap = (HashMap<String, Object>) sinkRecord.value();
 
     BsonDocument keyDoc = new BsonDocument();
@@ -466,13 +469,46 @@ final class MongoProcessedSinkRecordData {
     bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("demand_id").toString()));
 
     BsonDocument workschedule = SINK_CONVERTER.convert(sinkRecord).getValueDoc().orElse(null);
+    workschedule.append(
+        "create_user", new BsonString(Objects.toString(valueMap.get("create_user"), "connector")));
+    workschedule.append(
+        "create_date",
+        new BsonDateTime((Long) (valueMap.getOrDefault("create_date", currentTime))));
+    workschedule.append(
+        "update_user", new BsonString(Objects.toString(valueMap.get("update_user"), "connector")));
+    workschedule.append(
+        "update_date",
+        new BsonDateTime((Long) (valueMap.getOrDefault("update_date", currentTime))));
+
     bodyDoc.append(
         "workschedules.".concat(valueMap.getOrDefault("workschedule_id", "").toString()),
         workschedule);
 
     bodyDoc.append(
-        "update_user",
-        new BsonString(valueMap.getOrDefault("update_user", "connector").toString()));
+        "update_user", new BsonString(Objects.toString(valueMap.get("update_user"), "connector")));
+    bodyDoc.append(
+        "update_date",
+        new BsonDateTime((Long) (valueMap.getOrDefault("update_date", currentTime))));
+
+    return new SinkDocument(keyDoc, bodyDoc);
+  }
+
+  private SinkDocument getSinkRecordDemands() {
+    Map<String, Object> valueMap = (HashMap<String, Object>) sinkRecord.value();
+
+    BsonDocument keyDoc = new BsonDocument();
+    keyDoc.append("id", new BsonString(valueMap.get("demand_id").toString()));
+
+    BsonDocument bodyDoc = SINK_CONVERTER.convert(sinkRecord).getValueDoc().orElse(null);
+    bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("demand_id").toString()));
+
+    bodyDoc.append(
+        "create_user", new BsonString(Objects.toString(valueMap.get("create_user"), "connector")));
+    bodyDoc.append(
+        "create_date",
+        new BsonDateTime((Long) (valueMap.getOrDefault("create_date", currentTime))));
+    bodyDoc.append(
+        "update_user", new BsonString(Objects.toString(valueMap.get("update_user"), "connector")));
     bodyDoc.append(
         "update_date",
         new BsonDateTime((Long) (valueMap.getOrDefault("update_date", currentTime))));
