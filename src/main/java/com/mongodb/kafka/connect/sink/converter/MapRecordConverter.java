@@ -213,7 +213,8 @@ class MapRecordConverter implements RecordConverter {
               "hasshin_nichiji",
               "koushin_nichiji"),
           createTableMap("kykammokuhyo", "hiduke"),
-          createTableMap("shift", "hiduke"));
+          createTableMap("shift", "hiduke"),
+          createTableMap("kyakusu_event", "hiduke"));
 
   /** Chuyển đổi từ định dạng Date (kafka: integer: 19817) => StringDate: "2024-11-12T00:00:00Z" */
   private static final List<Map<String, Object>> FIELD_DATE_TO_STRING_DATE = Arrays.asList();
