@@ -57,6 +57,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import com.mongodb.kafka.connect.source.topic.mapping.DefaultTopicMapper;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.utils.SystemTime;
 import org.apache.kafka.common.utils.Time;
@@ -67,11 +68,7 @@ import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTaskContext;
 
-import org.bson.BsonDocument;
-import org.bson.BsonDocumentWrapper;
-import org.bson.BsonTimestamp;
-import org.bson.Document;
-import org.bson.RawBsonDocument;
+import org.bson.*;
 
 import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoCommandException;
@@ -256,33 +253,26 @@ final class StartedMongoSourceTask implements AutoCloseable {
 
         if (valueDocument.isPresent() || isTombstoneEvent) {
           BsonDocument valueDoc = valueDocument.orElse(new BsonDocument());
-          LOGGER.trace("Adding {} to {}: {}", valueDoc, topicName, sourceOffset);
 
-          if (valueDoc instanceof RawBsonDocument) {
-            int sizeBytes = ((RawBsonDocument) valueDoc).getByteBuffer().limit();
-            statisticsManager.currentStatistics().getMongodbBytesRead().sample(sizeBytes);
+          String collName = ((DefaultTopicMapper) topicMapper).getCollName(changeStreamDocument);
+
+          if ("syain".equals(collName)) {
+            String tableInMongoDB = "syain_busyos";
+            String tableInPostgreSQL = "syain_busyo";
+            if (valueDoc.containsKey(tableInMongoDB)) {
+              Map<String, BsonValue> fieldsToAdd = new HashMap<>();
+              fieldsToAdd.put("syain_id", valueDoc.get(ID_FIELD));
+
+              createNewSourceRecord(valueDoc, (DefaultTopicMapper) topicMapper, changeStreamDocument,
+                  sourceOffset, keySchemaAndValueProducer, isTombstoneEvent, valueSchemaAndValueProducer, sourceRecords,
+                      tableInMongoDB, tableInPostgreSQL, fieldsToAdd);
+
+              valueDoc = removeFields(valueDoc, tableInMongoDB);
+            }
           }
 
-          BsonDocument keyDocument;
-          if (sourceConfig.getKeyOutputFormat() == MongoSourceConfig.OutputFormat.SCHEMA) {
-            keyDocument = changeStreamDocument;
-          } else if (sourceConfig.getBoolean(DOCUMENT_KEY_AS_KEY_CONFIG)
-              && changeStreamDocument.containsKey(DOCUMENT_KEY_FIELD)) {
-            keyDocument = changeStreamDocument.getDocument(DOCUMENT_KEY_FIELD);
-          } else {
-            keyDocument = new BsonDocument(ID_FIELD, changeStreamDocument.get(ID_FIELD));
-          }
-
-          createSourceRecord(
-                  keySchemaAndValueProducer,
-                  isTombstoneEvent
-                      ? TOMBSTONE_SCHEMA_AND_VALUE_PRODUCER
-                      : valueSchemaAndValueProducer,
-                  sourceOffset,
-                  topicName,
-                  keyDocument,
-                  valueDoc)
-              .map(sourceRecords::add);
+          addSourceRecords(valueDoc, topicName, sourceOffset, changeStreamDocument, keySchemaAndValueProducer,
+                  isTombstoneEvent, valueSchemaAndValueProducer, sourceRecords);
         }
       }
     }
@@ -300,6 +290,71 @@ final class StartedMongoSourceTask implements AutoCloseable {
       return null;
     }
     return sourceRecords;
+  }
+
+  private void addSourceRecords(BsonDocument valueDoc, String topicName, Map<String, String> sourceOffset,
+          BsonDocument changeStreamDocument, SchemaAndValueProducer keySchemaAndValueProducer, boolean isTombstoneEvent,
+          SchemaAndValueProducer valueSchemaAndValueProducer, List<SourceRecord> sourceRecords) {
+    LOGGER.trace("Adding {} to {}: {}", valueDoc, topicName, sourceOffset);
+
+    if (valueDoc instanceof RawBsonDocument) {
+      int sizeBytes = ((RawBsonDocument) valueDoc).getByteBuffer().limit();
+      statisticsManager.currentStatistics().getMongodbBytesRead().sample(sizeBytes);
+    }
+
+    BsonDocument keyDocument;
+    if (sourceConfig.getKeyOutputFormat() == MongoSourceConfig.OutputFormat.SCHEMA) {
+      keyDocument = changeStreamDocument;
+    } else if (sourceConfig.getBoolean(DOCUMENT_KEY_AS_KEY_CONFIG) && changeStreamDocument.containsKey(
+            DOCUMENT_KEY_FIELD)) {
+      keyDocument = changeStreamDocument.getDocument(DOCUMENT_KEY_FIELD);
+    } else {
+      keyDocument = new BsonDocument(ID_FIELD, changeStreamDocument.get(ID_FIELD));
+    }
+
+    createSourceRecord(keySchemaAndValueProducer,
+            isTombstoneEvent ? TOMBSTONE_SCHEMA_AND_VALUE_PRODUCER : valueSchemaAndValueProducer, sourceOffset,
+            topicName, keyDocument, valueDoc).map(sourceRecords::add);
+  }
+
+  private BsonDocument removeFields(BsonDocument valueDoc, String... fieldNames) {
+    boolean isRawBsonDocument = valueDoc instanceof RawBsonDocument;
+    BsonDocument mutableValueDoc = isRawBsonDocument ? BsonDocument.parse(valueDoc.toJson()) : valueDoc;
+
+    for (String fieldName : fieldNames) {
+      mutableValueDoc.remove(fieldName);
+    }
+
+    return isRawBsonDocument ? RawBsonDocument.parse(mutableValueDoc.toJson()) : mutableValueDoc;
+  }
+
+  private BsonDocument addFieldsToRecord(BsonDocument valueDoc, Map<String, BsonValue> fieldsToAdd) {
+    boolean isRawBsonDocument = valueDoc instanceof RawBsonDocument;
+    BsonDocument mutableValueDoc = isRawBsonDocument ? BsonDocument.parse(valueDoc.toJson()) : valueDoc;
+
+    for (Map.Entry<String, BsonValue> entry : fieldsToAdd.entrySet()) {
+      mutableValueDoc.append(entry.getKey(), entry.getValue());
+    }
+
+    return isRawBsonDocument ? RawBsonDocument.parse(mutableValueDoc.toJson()) : mutableValueDoc;
+  }
+
+  private void createNewSourceRecord(BsonDocument valueDoc, DefaultTopicMapper topicMapper,
+          BsonDocument changeStreamDocument, Map<String, String> sourceOffset,
+          SchemaAndValueProducer keySchemaAndValueProducer, boolean isTombstoneEvent,
+          SchemaAndValueProducer valueSchemaAndValueProducer, List<SourceRecord> sourceRecords,
+          String nameTableInMongoDB, String nameTableInPostgreSql, Map<String, BsonValue> fieldsToAdd) {
+    BsonDocument bsonDocument = valueDoc.getDocument(nameTableInMongoDB);
+    String topicName = topicMapper.setTopicName(changeStreamDocument, nameTableInPostgreSql);
+
+    for (String key : bsonDocument.keySet()) {
+      BsonDocument newValueDoc = bsonDocument.getDocument(key);
+
+      newValueDoc = addFieldsToRecord(newValueDoc, fieldsToAdd);
+
+      addSourceRecords(newValueDoc, topicName, sourceOffset, changeStreamDocument, keySchemaAndValueProducer,
+              isTombstoneEvent, valueSchemaAndValueProducer, sourceRecords);
+    }
   }
 
   private Optional<SourceRecord> createSourceRecord(

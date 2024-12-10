@@ -148,6 +148,26 @@ public class DefaultTopicMapper implements TopicMapper {
     return cachedTopic;
   }
 
+  public String setTopicName(final BsonDocument changeStreamDocument, String collName) {
+
+    String dbName = getStringFromPath(DB_FIELD_PATH, changeStreamDocument);
+    if (dbName.isEmpty()) {
+      return "";
+    }
+    String namespace = namespace(dbName, collName);
+
+    String cachedTopic = namespaceTopicCache.get(namespace);
+    if (cachedTopic == null) {
+      cachedTopic = decorateTopicName(getUndecoratedTopicName(dbName, collName));
+      namespaceTopicCache.put(namespace, cachedTopic);
+    }
+    return cachedTopic;
+  }
+
+  public String getCollName(final BsonDocument changeStreamDocument) {
+    return getStringFromPath(COLL_FIELD_PATH, changeStreamDocument);
+  }
+
   private String getStringFromPath(
       final String fieldPath, final BsonDocument changeStreamDocument) {
     return fieldLookup(fieldPath, changeStreamDocument)
