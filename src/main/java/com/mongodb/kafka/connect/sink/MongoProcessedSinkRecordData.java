@@ -378,6 +378,12 @@ final class MongoProcessedSinkRecordData {
     syainBusyo.append(
         "create_user", new BsonString(Objects.toString(valueMap.get("create_user"), "connector")));
     syainBusyo.append(
+        "yuko_kikan_kaishi",
+        new BsonDateTime((Long) (valueMap.getOrDefault("yuko_kikan_kaishi", currentTime))));
+    syainBusyo.append(
+        "yuko_kikan_shuryo",
+        new BsonDateTime((Long) (valueMap.getOrDefault("yuko_kikan_shuryo", currentTime))));
+    syainBusyo.append(
         "create_date",
         new BsonDateTime((Long) (valueMap.getOrDefault("create_date", currentTime))));
     syainBusyo.append(
