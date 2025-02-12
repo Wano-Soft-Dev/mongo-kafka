@@ -194,10 +194,10 @@ final class MongoProcessedSinkRecordData {
     Map<String, Object> valueMap = (HashMap<String, Object>) sinkRecord.value();
 
     BsonDocument keyDoc = new BsonDocument();
-    keyDoc.append("id", new BsonString(valueMap.get("target_tenpogroup_id").toString()));
+    keyDoc.append("id", new BsonString(valueMap.get("tenpogroupId").toString()));
 
     BsonDocument bodyDoc = new BsonDocument();
-    bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("target_tenpogroup_id").toString()));
+    bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("tenpogroupId").toString()));
 
     BsonDocument tenporoupClassRel = SINK_CONVERTER.convert(sinkRecord).getValueDoc().orElse(null);
     bodyDoc.append(
@@ -327,6 +327,13 @@ final class MongoProcessedSinkRecordData {
 
     sagyobunruiM.append(
         "_id", new BsonString(valueMap.getOrDefault("sagyobunrui_m_id", "").toString()));
+    sagyobunruiM.append(
+        "sagyobunrui_m_id",
+        new BsonString(valueMap.getOrDefault("sagyobunrui_m_id", "").toString()));
+    sagyobunruiM.append(
+        "deleted",
+        new BsonBoolean(Boolean.parseBoolean(valueMap.getOrDefault("deleted", false).toString())));
+
     bodyDoc.append("sagyobunrui_m", sagyobunruiM);
 
     bodyDoc.append(
