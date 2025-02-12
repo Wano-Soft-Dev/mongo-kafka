@@ -194,12 +194,16 @@ final class MongoProcessedSinkRecordData {
     Map<String, Object> valueMap = (HashMap<String, Object>) sinkRecord.value();
 
     BsonDocument keyDoc = new BsonDocument();
-    keyDoc.append("id", new BsonString(valueMap.get("tenpogroupId").toString()));
+    keyDoc.append("id", new BsonString(valueMap.get("tenpogroup_id").toString()));
 
     BsonDocument bodyDoc = new BsonDocument();
-    bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("tenpogroupId").toString()));
+    bodyDoc.append(ID_FIELD, new BsonString(valueMap.get("tenpogroup_id").toString()));
 
     BsonDocument tenporoupClassRel = SINK_CONVERTER.convert(sinkRecord).getValueDoc().orElse(null);
+    if (tenporoupClassRel != null) {
+      tenporoupClassRel.remove("tenpogroup_id");
+    }
+
     bodyDoc.append(
         "tenporoup_class_rel.".concat(valueMap.getOrDefault("_id", "").toString()),
         tenporoupClassRel);
