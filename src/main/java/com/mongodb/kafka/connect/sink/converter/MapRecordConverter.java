@@ -193,6 +193,7 @@ class MapRecordConverter implements RecordConverter {
       Arrays.asList(
           createTableMap("syain", "nyusya_date", "taisya_date", "ido_date"),
           createTableMap("demands", "hiduke", "hani_hiduke_from", "hani_hiduke_to"),
+          createTableMap("workschedule", "hiduke"),
           createTableMap("task", "hiduke"),
           createTableMap(
               "be_bmail",
