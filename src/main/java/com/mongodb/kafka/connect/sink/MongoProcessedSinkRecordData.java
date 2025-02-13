@@ -329,8 +329,7 @@ final class MongoProcessedSinkRecordData {
 
     BsonDocument sagyobunruiM = new BsonDocument();
 
-    sagyobunruiM.append(
-        "_id", new BsonString(valueMap.getOrDefault("sagyobunrui_m_id", "").toString()));
+    sagyobunruiM.append("_id", new BsonString(valueMap.getOrDefault("_id", "").toString()));
     sagyobunruiM.append(
         "sagyobunrui_m_id",
         new BsonString(valueMap.getOrDefault("sagyobunrui_m_id", "").toString()));
