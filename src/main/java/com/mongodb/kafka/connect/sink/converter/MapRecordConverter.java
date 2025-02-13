@@ -70,7 +70,6 @@ class MapRecordConverter implements RecordConverter {
             .orElse(null);
 
     if (tableInfo == null) {
-      System.out.println("No matching table found for table name: " + tableName);
       return; // Không có bảng phù hợp, thoát sớm
     }
 
@@ -103,7 +102,6 @@ class MapRecordConverter implements RecordConverter {
             .orElse(null);
 
     if (tableInfo == null) {
-      System.out.println("No matching table found for table name: " + tableName);
       return; // Không có bảng phù hợp, thoát sớm
     }
 
@@ -139,7 +137,6 @@ class MapRecordConverter implements RecordConverter {
             .orElse(null);
 
     if (tableInfo == null) {
-      System.out.println("No matching table found for table name: " + tableName);
       return; // Không có bảng phù hợp, thoát sớm
     }
 
@@ -212,7 +209,7 @@ class MapRecordConverter implements RecordConverter {
               "yobi_bi_6",
               "hasshin_nichiji",
               "koushin_nichiji"),
-          createTableMap("kykammokuhyo", "hiduke"),
+          createTableMap("kikanmokuhyo", "hiduke"),
           createTableMap("shift", "hiduke"),
           createTableMap("kyakusu_event", "hiduke"));
 
