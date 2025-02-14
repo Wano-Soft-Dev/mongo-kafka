@@ -205,7 +205,7 @@ final class MongoProcessedSinkRecordData {
     }
 
     bodyDoc.append(
-        "tenporoup_class_rel.".concat(valueMap.getOrDefault("_id", "").toString()),
+        "tenpogroup_class_rel.".concat(valueMap.getOrDefault("_id", "").toString()),
         tenporoupClassRel);
 
     bodyDoc.append(
